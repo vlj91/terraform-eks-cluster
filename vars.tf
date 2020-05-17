@@ -63,3 +63,23 @@ variable "workers_max_size" {
   type    = number
   default = 1
 }
+
+variable "kubernetes_dashboard_enabled" {
+  type = bool
+  default = true
+}
+
+variable "metrics_server_enabled" {
+  type = bool
+  default = true
+}
+
+variable "weave_scope_enabled" {
+  type = bool
+  default = true
+}
+
+variable "node_problem_detector_enabled" {
+  type = bool
+  default = true
+}
