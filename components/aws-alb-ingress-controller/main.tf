@@ -1,8 +1,51 @@
+data "aws_eks_cluster" "this" {
+  count = var.create ? 1 : 0
+  name  = var.cluster_name
+}
+
+data "external" "thumbprint" {
+  program = ["${path.module}/bin/get_thumbprint.sh", var.region_name]
+}
+
+resource "aws_iam_openid_connect_provider" "this" {
+  count           = var.create ? 1 : 0
+  client_id_list  = ["sts.amazonaws.com"]
+  thumbprint_list = [data.external.thumbprint.result.thumbprint]
+  url             = flatten(concat(data.aws_eks_cluster.this[count.index].identity[*].oidc.0.issuer, [""]))[0]
+}
+
+data "aws_iam_policy_document" "oidc-assume-role" {
+  count = var.create ? 1 : 0
+
+  statement {
+    sid = "OIDC"
+    actions = ["sts:AssumeRoleWithWebIdentity"]
+
+    condition {
+      test     = "StringEquals"
+      variable = "${replace(data.aws_eks_cluster.this[count.index].identity[0].oidc[0].issuer, "https://", "")}:sub"
+
+      values = [
+        "system:serviceaccount:kube-system:aws-alb-ingress-controller"
+      ]
+    }
+
+    principals {
+      type = "Federated"
+
+      identifiers = [
+        "arn:aws:iam::${var.account_id}:oidc-provider/${replace(data.aws_eks_cluster.this[count.index].identity[0].oidc[0].issuer, "https://", "")}"
+      ]
+    }
+  }
+}
+
 resource "aws_iam_role" "alb-ingress" {
+  count = var.create ? 1 : 0
   name               = "${var.cluster_name}-alb-ingress-controller"
   description        = "EKS ALB ingress controller"
-  assume_role_policy = data.aws_iam_policy_document.oidc-assume-role.json
-  tags               = local.tags
+  assume_role_policy = data.aws_iam_policy_document.oidc-assume-role[count.index].json
+  tags               = var.tags
 }
 
 data "aws_iam_policy_document" "alb-ingress" {
@@ -128,13 +171,14 @@ data "aws_iam_policy_document" "alb-ingress" {
 }
 
 resource "aws_iam_role_policy" "alb-ingress" {
+  count = var.create ? 1 : 0
   name = "${var.cluster_name}-eks-alb-ingress"
-  role = aws_iam_role.alb-ingress.name
+  role = aws_iam_role.alb-ingress[count.index].name
   policy = data.aws_iam_policy_document.alb-ingress.json
 }
 
 resource "kubernetes_cluster_role" "alb-ingress" {
-  depends_on = [local_file.kubeconfig, aws_eks_cluster.this]
+  count = var.create ? 1 : 0
   metadata {
     name = "alb-ingress-controller"
 
@@ -182,7 +226,9 @@ resource "kubernetes_cluster_role" "alb-ingress" {
 }
 
 resource "kubernetes_cluster_role_binding" "alb-ingress" {
-  depends_on = [local_file.kubeconfig, aws_eks_cluster.this]
+  count = var.create ? 1 : 0
+  depends_on = [kubernetes_cluster_role.alb-ingress]
+
   metadata {
     name = "alb-ingress-controller"
 
@@ -206,13 +252,13 @@ resource "kubernetes_cluster_role_binding" "alb-ingress" {
 }
 
 resource "kubernetes_service_account" "alb-ingress" {
-  depends_on = [local_file.kubeconfig, aws_eks_cluster.this]
+  count = var.create ? 1 : 0
   metadata {
     name = "alb-ingress-controller"
     namespace = "kube-system"
 
     annotations = {
-      "eks.amazonaws.com/role-arn" = aws_iam_role.alb-ingress.arn
+      "eks.amazonaws.com/role-arn" = aws_iam_role.alb-ingress[count.index].arn
     }
 
     labels = {
@@ -223,7 +269,8 @@ resource "kubernetes_service_account" "alb-ingress" {
 }
 
 resource "kubernetes_deployment" "alb-ingress-controller" {
-  depends_on = [local_file.kubeconfig, kubernetes_cluster_role_binding.alb-ingress]
+  count = var.create ? 1 : 0
+  depends_on = [kubernetes_cluster_role_binding.alb-ingress]
 
   metadata {
     name      = "aws-alb-ingress-controller"
@@ -251,7 +298,7 @@ resource "kubernetes_deployment" "alb-ingress-controller" {
         }
 
         annotations = {
-          "iam.amazonaws.com/role" = aws_iam_role.alb-ingress.arn
+          "iam.amazonaws.com/role" = aws_iam_role.alb-ingress[count.index].arn
         } 
       }
 
@@ -277,7 +324,7 @@ resource "kubernetes_deployment" "alb-ingress-controller" {
         automount_service_account_token = true
         dns_policy = "ClusterFirst"
         restart_policy = "Always"
-        service_account_name             = kubernetes_service_account.alb-ingress.metadata[0].name
+        service_account_name             = kubernetes_service_account.alb-ingress[count.index].metadata[0].name
         termination_grace_period_seconds = 60
 
         container {
@@ -288,9 +335,9 @@ resource "kubernetes_deployment" "alb-ingress-controller" {
 
           args = [
             "--ingress-class=alb",
-            "--cluster-name=${aws_eks_cluster.this.id}",
-            "--aws-vpc-id=${module.vpc.vpc_id}",
-            "--aws-region=${data.aws_region.current.name}",
+            "--cluster-name=${var.cluster_name}",
+            "--aws-vpc-id=${var.vpc_id}",
+            "--aws-region=${var.region_name}",
             "--aws-max-retries=10",
           ]
         }
