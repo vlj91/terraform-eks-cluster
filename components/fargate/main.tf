@@ -50,7 +50,7 @@ resource "aws_eks_fargate_profile" "this" {
   count                  = var.create ? length(var.namespaces) : 0
   cluster_name           = var.cluster_name
   fargate_profile_name   = var.namespaces[count.index]
-  pod_execution_role_arn = aws_iam_role.fargate-profile[count.index].arn
+  pod_execution_role_arn = join("", aws_iam_role.fargate-profile.*.arn)
   subnet_ids             = var.private_subnet_ids
   tags                   = var.tags
 

@@ -39,6 +39,10 @@ variable "fargate_enabled_namespaces" {
   default = ["kube-ingress", "kube-system"]
 }
 
+output "kubeconfig" {
+  value = module.kubeconfig.rendered
+}
+
 data "aws_caller_identity" "current" {}
 
 data "aws_availability_zones" "available" {}

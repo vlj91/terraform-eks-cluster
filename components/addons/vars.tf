@@ -4,6 +4,11 @@ variable "create" {
   default = true
 }
 
+variable "labels" {
+  type = map(string)
+  default = {}
+}
+
 variable "kubernetes_dashboard_enabled" {
   type = bool
   default = true
@@ -26,6 +31,12 @@ variable "weave_scope_enabled" {
   type = bool
   default = true
   description = "Optionally deploy weave-scope"
+}
+
+variable "prometheus_enabled" {
+  type = bool
+  default = true
+  description = "Optionally deploy prometheus"
 }
 
 locals {

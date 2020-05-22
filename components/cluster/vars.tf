@@ -16,12 +16,6 @@ variable "vpc_id" {
   type = string
 }
 
-variable "workers_security_group_id" {
-  type = string
-  default = "none"
-  description = "Worker nodes security group ID"
-}
-
 variable "log_enabled_types" {
   type    = list(string)
   default = ["api", "audit", "authenticator", "controllerManager", "scheduler"]
@@ -60,10 +54,12 @@ output "id" {
   value = join("", aws_eks_cluster.this.*.id)
 }
 
-locals {
-  cluster_identity = aws_eks_cluster.this.*.identity
+output "labels" {
+  value = {
+    "kubernetes.io/cluster" = join("", aws_eks_cluster.this.*.id)
+  }
 }
 
-output "issuer" {
-  value = flatten(concat(local.cluster_identity.*.oidc.0.issuer, [""]))[0]
+locals {
+  cluster_identity = aws_eks_cluster.this.*.identity
 }

@@ -26,8 +26,8 @@ module "cluster" {
 
   create                    = var.create
   name                      = var.cluster_name
+  private_subnet_ids        = module.vpc.private_subnets
   vpc_id                    = module.vpc.vpc_id
-  workers_security_group_id = module.workers.security_group_id
 }
 
 module "kubeconfig" {
@@ -42,6 +42,7 @@ module "addons" {
   source = "./components/addons"
 
   create = var.create
+  labels = module.cluster.labels
 }
 
 module "namespaces" {
@@ -54,9 +55,10 @@ module "namespaces" {
 module "fargate" {
   source = "./components/fargate"
 
-  create       = var.create
-  cluster_name = module.cluster.id
-  namespaces   = var.fargate_enabled_namespaces
+  create             = var.create
+  cluster_name       = module.cluster.id
+  namespaces         = var.fargate_enabled_namespaces
+  private_subnet_ids = module.vpc.private_subnets
 }
 
 module "workers" {
