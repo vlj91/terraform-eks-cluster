@@ -1,27 +1,3 @@
-variable "create" {
-  type    = bool
-  default = true
-}
-
-variable "cluster_name" {
-  type = string
-}
-
-variable "private_subnet_ids" {
-  type = list(string)
-  default = []
-}
-
-variable "namespaces" {
-  type = list(string)
-  default = []
-}
-
-variable "tags" {
-  type = map(string)
-  default = {}
-}
-
 data "aws_iam_policy_document" "fargate-profile-assume-role" {
   statement {
     actions = ["sts:AssumeRole"]
@@ -47,14 +23,15 @@ resource "aws_iam_role_policy_attachment" "fargate-profile-AmazonEKSFargatePodEx
 }
 
 resource "aws_eks_fargate_profile" "this" {
-  count                  = var.create ? length(var.namespaces) : 0
+  count                  = var.create ? length(var.fargate_namespaces) : 0
+  depends_on             = [aws_eks_cluster.this]
   cluster_name           = var.cluster_name
-  fargate_profile_name   = var.namespaces[count.index]
+  fargate_profile_name   = var.fargate_namespaces[count.index]
   pod_execution_role_arn = join("", aws_iam_role.fargate-profile.*.arn)
-  subnet_ids             = var.private_subnet_ids
+  subnet_ids             = module.vpc.private_subnets
   tags                   = var.tags
 
   selector {
-    namespace = var.namespaces[count.index]
+    namespace = var.fargate_namespaces[count.index]
   }
 }

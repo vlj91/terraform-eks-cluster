@@ -1,0 +1,16 @@
+plugins:
+  plugins.yaml:
+    apiVersion: 1
+    plugins:
+      - camptocamp-prometheus-alertmanager-datasource
+      - grafana-kubernetes-app
+
+datasources:
+  datasources.yaml:
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        type: prometheus
+        url: http://prometheus-server.kube-system.svc.cluster.local
+        access: proxy
+        isDefault: true
